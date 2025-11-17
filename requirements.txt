@@ -1,0 +1,5 @@
+dbt-bigquery
+gsutil
+apache-airflow-providers-google
+apache-airflow
+astronomer-cosmos # a Python library that lets you run dbt inside Airflow more natively (no Bash commands)

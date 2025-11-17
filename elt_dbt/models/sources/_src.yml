@@ -1,0 +1,41 @@
+# This is for tests, freshness and documentation
+version: 2
+sources:
+  # csv raw datasets are in 'olist_raw' dataset in BQ
+  - name: olist_raw
+    description: "Raw Olist tables already in BigQuery"
+    database: ai-gen-recipe      # GCP project
+    schema: olist_raw            # BigQuery dataset
+    tables:
+      # 1
+      - name: products
+        description: "Raw products table"
+        columns:
+          - name: product_id
+            tests: [not_null,unique]
+          - name: product_category_name
+            tests: [not_null]
+      # 2
+      - name: product_name_translation
+        description: "Portuguese → English category translation"
+        columns:
+          - name: string_field_0
+            description: "Portuguese category name"
+          - name: string_field_1
+            description: "English category name"
+      # 3
+      - name: orders
+      - name: order_status
+        # tests:
+          # - accepted_values:
+              # values: ['CREATED','APPROVED','INVOICED','PROCESSING','SHIPPED','DELIVERED','CANCELED','UNAVAILABLE','INVOICED','UNKNOWN']
+
+      # skip descriptions for now, best practice is to write for better docs
+      # do not need to list all columns unless you tests
+      # 4 - 9
+      - name: customers
+      - name: geolocaiton
+      - name: order_items
+      - name: payments
+      - name: reviews
+      - name: sellers

@@ -1,0 +1,14 @@
+# Ignore all files inside the data folder
+/data/*
+
+# But keep the folder itself (so it remains in the repo)
+!/data/
+dbt_internal_packages/
+
+.python-version
+.envrc
+.env
+
+logs/
+
+learning_notes/
