@@ -3,6 +3,8 @@ import json
 import pendulum # better datetime library Airflow uses, supports timezones.
 from airflow import DAG
 from airflow.operators.bash import BashOperator
+from datetime import timedelta
+
 
 ### WHAT THIS DOES
 # 1. Looks for the manifest.json file
@@ -44,37 +46,50 @@ with DAG(
         if node_info["resource_type"] != "model":
             continue
 
+        # (Optional but recommended) – only models from *your* package
+        if node_info.get("package_name") != "etl_pipeline_dbt_bq_airflow":
+            continue
+
         task_id = ".".join(
             [
                 node_info["resource_type"],
-                node_info["package_name"],
+                node_info["package_name"], # "etl_pipeline_dbt_bq_airflow"
                 node_info["name"],
             ]
         )
 
+        # print(node_info.get("package_name"))
+
+
         dbt_tasks[node_id] = BashOperator(
             task_id=task_id,
+            execution_timeout=timedelta(hours=1),
             bash_command=(
                 # GCS folder where models(sql) are
                 "cd /home/airflow/gcs/dags/ && " # always add one space
                 "dbt run "# always add one space
                 f"--models {node_info['name']} "# always add one space
                 "--target dev " #"--target prod" # always add one space
-                #"--full-refresh " # Drop and recreate ALL “table” and “incremental” models
+                "--full-refresh" # Drop and recreate ALL “table” and “incremental” models
             ),
         )
 
 
-        # Wire up dependencies based on dbt graph
-        for node_id, node_info in nodes.items():
-            if node_info["resource_type"] != "model":
-                continue
+    # Wire up dependencies based on dbt graph
+    for node_id, node_info in nodes.items():
 
-            upstream_nodes = node_info["depends_on"]["nodes"]
-            if upstream_nodes:
-                for upstream_node in upstream_nodes:
-                    if upstream_node in dbt_tasks:
-                        dbt_tasks[upstream_node] >> dbt_tasks[node_id]
+        if node_id not in dbt_tasks:
+            continue
+        if node_info.get("resource_type") != "model":
+            continue
+
+        upstream_nodes = node_info.get("depends_on", {}).get("nodes", []) #= node_info["depends_on"]["nodes"]
+
+        for upstream_node in upstream_nodes:
+            # Only create edges if the upstream node also has a task
+            if upstream_node in dbt_tasks:
+                dbt_tasks[upstream_node] >> dbt_tasks[node_id] # 15:42
+
 
 if __name__ == "__main__":
     dag.cli()

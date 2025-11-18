@@ -1,8 +1,8 @@
 # ⚙️ Project : Modern Data ELT pipele for e-commerce dataset, olist, with dbt, BigQuery and Airflow (Cloud Composer)
 
-End-to-End Production-Grade Orchestration on Google Cloud
+🚀 End-to-End Production-Grade Orchestration on Google Cloud
 
-This project implements a complete modern data engineering pipeline, orchestrated with Airflow running on Google Cloud Composer, transforming data using dbt Core, and storing curated data in BigQuery.
+This project demonstrates a fully automated **ELT pipeline** built using **dbt, Airflow (Cloud Composer), Google Cloud Storage, and BigQuery**. It highlights modern data engineering practices including orchestration, CI/CD automation, dependency management, dbt modeling, and scalable warehouse design.
 
 The pipeline is built to match real production standards used by data teams.
 
@@ -46,24 +46,43 @@ Airflow DAG → BashOperator → dbt Core
 
 - Produce an **end-to-end** portfolio-ready **data engineering** system
 
-# 🧮 Features
+# 🧮 Key Features
+
+### Orchestration & Automation
+
+✴️ Cloud Composer (Managed Airflow) used to orchestrate dbt workflows end-to-end.
+
+✴️ Automated dbt model execution via Airflow DAGs (staging → dims → marts).
+
+✴️ Dependency resolution via ```manifest.json```, ensuring correct execution order.
+
+✴️ Retries, timeouts, logging, and error handling for production readiness.
+
+### Deployment & Infrastructure
+
+✴️ GCS bucket code syncing used for deploying dbt models and DAG files to Composer.
+
+✴️ IAM-secure service account impersonation for least-privilege access to BigQuery and GCS.
+
+### dbt Data Modeling
+
+✴️ BigQuery as the warehouse with:**Source models, Staging models (materialized as views), Dim / mart models (materialized as tables)**
+
+✴️ dbt tests, documentation, lineage, and model configurations.
+
+✴️ Support for incremental, full-refresh, and dependency-driven execution.
+
+### BigQuery Engineering
+
+✴️ Partitioned and clustered table design for efficient cost-optimised querying.
+
+✴️ SQL transformations optimised for scalable analytical workloads.
+
+✴️ Performance-aware modeling following ELT best practices.
 
 
-✴️ Cloud Composer (managed Airflow)
 
-✴️ GCS bucket syncing for code deployment
 
-✴️ Fully automated dbt execution in DAG
-
-✴️ BigQuery sources, staging, and marts
-
-✴️ Incremental model dependency resolution using manifest.json
-
-✴️ IAM-secure service account impersonation
-
-✴️ End-to-end logs, retries, and failure handling
-
-----
 
 # 🔧 Cloud Components Used
 
@@ -101,8 +120,10 @@ gs://<raw-data-bucket>/data/
         ├──manifest.json
 
 ```
-# TODO change this title
-# What I Successfully Built (What Engineers Care About)
+
+
+
+# What I build
 
 #### 1. Cloud Composer Environment Setup
 I fully configured Composer, including:
@@ -161,18 +182,6 @@ dbt_tasks[node_id] = BashOperator(
 
 - Service account impersonation for Airflow execution
 
-
-
----
-#
-
-✅ Design and implement ELT data pipelines
-✅ A dbt project with tests, docs, and lineage
-✅ Designing partitioned and clustered tables (BigQuery)
-✅ Query optimization
-✅ Setting up CI/CD to run dbt automatically on push
-✅ Scheduling dbt jobs with Airflow
-
 ---
 
 # 🛠️ Problems and Solutions : Airflow + dbt + BigQuery Integration
@@ -187,11 +196,16 @@ This section documents the major issues encountered while orchestrating dbt mode
 iam.serviceAccounts.getAccessToken denied
 ```
 #### Solution
-Grant Airflow Worker SA
+Grant Airflow Worker SA, run this command on the terminal.
 
-# TODO
+
 ```bash
-gcloud
+
+gcloud iam service-accounts add-iam-policy-binding \
+  dbt-olist-project@< project ID here >.iam.gserviceaccount.com \
+  --member="<your emial address >@gmail.com" \
+  --role="roles/iam.serviceAccountTokenCreator"
+
 
 ```
 
@@ -326,6 +340,50 @@ Inside Composer, dbt tried to create it as a **view** (based on **dbt_project.ym
 
 Manually delete table(olist_dbt.dim_product_translated_name) from BigQuery
 
+### 6. Airflow Timeout & Zombie Task Issue
+
+#### Cause
+dbt models took longer than the default time limi, Airflow workers stopped while dbt was running long BigQuery jobs. The Airflow scheduler assumed the task died → marked it as zombie.Even though dbt finished and created some views/tables(not compelted) in BigQuery, Airflow still failed the task.
+
+#### How I diagnosed
+- Airflow UI showed tasks red (failed) even though BigQuery tables were partly successfully created.
+- dbt logs inside the task output showed:```"Completed successfully"```, ```PASS=1 ERROR=0```
+- **Cloud Logging** / Scheduler logs showed **zombie** detection
+- No actual dbt errors. was **not dbt-related**, but **Airflow execution + timeout** related.
+
+#### Solution
+
+Airflow configuration overrides in Cloud Composer
+
+```yml
+[celery]
+task_soft_time_limit = 3000
+task_time_limit = 36000
+worker_prefetch_multiplier = 1
+
+[scheduler]
+scheduler_zombie_task_threshold = 600
+scheduler_heartbeat_sec = 10
+```
+
+
+dbt models took longer to execute than Airflow’s default task timeout and heartbeat thresholds. **Cloud Composer** uses **CeleryExecutor**, and **Celery enforces strict timeouts**
+
+- ```task_time_limit``` → Maximum wall-clock time allowed for a task
+
+- ```task_soft_time_limit``` → When Celery sends a soft kill signal
+
+- ```scheduler_zombie_task_threshold``` → How long Airflow waits before marking a task as “zombie” if it stops sending heartbeats
+
+
+```python
+from datetime import timedelta
+
+dbt_run = BashOperator(
+    execution_timeout=timedelta(minutes=40)
+    )
+```
+
 
 ### 📊 Outcome: Fully Working Production-Style Pipeline
 ✔ Airflow schedules dbt runs
@@ -352,4 +410,7 @@ Manually delete table(olist_dbt.dim_product_translated_name) from BigQuery
 - Organising GCS buckets for automated DAG deployment
 - Running dbt Core in production-grade cloud environments
 
+- shos
+
 ---
+#
